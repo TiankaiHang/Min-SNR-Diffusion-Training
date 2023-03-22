@@ -13,7 +13,7 @@ By Tiankai Hang, Shuyang Gu, Chen Li, Jianmin Bao, Dong Chen, Han Hu, Xin Geng, 
 For CelebA dataset, we follow [ScoreSDE](https://github.com/yang-song/score_sde/blob/0acb9e0ea3b8cccd935068cd9c657318fbc6ce4c/datasets.py#L121) to process the data.
 
 For ImageNet dataset, we download it from the [official website](https://www.image-net.org/). For ImageNet-64, we did not adopt offline pre-processing. For ImageNet-256, we cropped the images to 256x256 and compressed them using AutoencoderKL from [Diffusers](https://github.com/huggingface/diffusers/blob/main/src/diffusers/models/autoencoder_kl.py).
-The compressed latent codes are treated equally as image, except the file extension.
+The compressed latent codes are treated equally as images, except the file extension.
 
 ## Training
 For training with ViT-B model, you should first put the downloaded/processed data above to some path, and set `DATA_DIR` in the config file [`vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh`](./configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh). Then you could run like

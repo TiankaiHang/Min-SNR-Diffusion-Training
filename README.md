@@ -16,11 +16,11 @@ For ImageNet dataset, we download it from the [official website](https://www.ima
 The compressed latent codes are treated equally as image, except the file extension.
 
 ## Training
-For training with ViT-B model, you should first put the downloaded/processed data above to some path, and set `DATA_DIR` in the config file [`vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh`](./configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh). Then, you could run 
+For training with ViT-B model, you should first put the downloaded/processed data above to some path, and set `DATA_DIR` in the config file [`vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh`](./configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh). Then you could run like
 ```bash
 GPUS=8
 BATCH_SIZE_PER_GPU=32
-bash configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh 8 32
+bash configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh $GPUS $BATCH_SIZE_PER_GPU
 ```
 
 

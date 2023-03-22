@@ -1,3 +1,9 @@
+exp/
+edm/
+cache.txt
+azcopy10/
+azcopy.tar
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

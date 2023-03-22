@@ -1,0 +1,11 @@
+wandb
+tensorboard
+# git+https://github.com/TiankaiHang/clean-fid.git
+diffusers
+timm 
+tensorboard 
+pyyaml 
+scipy 
+termcolor 
+yacs
+accelerate

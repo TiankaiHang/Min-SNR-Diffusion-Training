@@ -860,8 +860,8 @@ class GaussianDiffusion:
             
             elif self.mse_loss_weight_type.startswith("max_snr_"):
                 k = float(self.mse_loss_weight_type.split('max_snr_')[-1])
-                # min{snr, k}
-                mse_loss_weight = th.stack([snr, k * th.ones_like(t)], dim=1).max(dim=1)[0]
+                # max{snr, k}
+                mse_loss_weight = th.stack([snr, k * th.ones_like(t)], dim=1).max(dim=1)[0] / snr
 
         else:
             if self.mse_loss_weight_type == 'trunc_snr':

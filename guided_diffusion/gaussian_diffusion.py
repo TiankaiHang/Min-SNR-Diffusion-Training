@@ -857,6 +857,11 @@ class GaussianDiffusion:
                 k = float(self.mse_loss_weight_type.split('min_snr_')[-1])
                 # min{snr, k}
                 mse_loss_weight = th.stack([snr, k * th.ones_like(t)], dim=1).min(dim=1)[0] / snr
+
+            elif self.mse_loss_weight_type.startswith("vmin_snr_"):
+                k = float(self.mse_loss_weight_type.split('vmin_snr_')[-1])
+                # min{snr, k}
+                mse_loss_weight = th.stack([snr, k * th.ones_like(t)], dim=1).min(dim=1)[0] / (snr + 1)
             
             elif self.mse_loss_weight_type.startswith("max_snr_"):
                 k = float(self.mse_loss_weight_type.split('max_snr_')[-1])

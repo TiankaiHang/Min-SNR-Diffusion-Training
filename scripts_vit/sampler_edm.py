@@ -41,6 +41,10 @@ def build_model(**kwargs):
     elif kwargs['model_name'] == 'vit_xl_patch2_32':
         from guided_diffusion.vision_transformer import vit_xl_patch2_32
         _model = vit_xl_patch2_32(**kwargs)
+    
+    elif kwargs['model_name'] == 'vit_base_arbitrary':
+        from guided_diffusion.vision_transformer import vit_base_arbitrary
+        _model = vit_base_arbitrary(**kwargs)
     else:
         raise NotImplementedError(f'Such model is not supported')
     return _model
@@ -385,6 +389,7 @@ def create_argparser():
         lr_final=1e-5,
         in_chans=3,
         num_classes=1000,
+        patch_size=4,
 
         # sampler settings
         sample_name="edm", # ["dpm", "edm"]

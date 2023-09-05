@@ -22,6 +22,7 @@ def diffusion_defaults():
         rescale_timesteps=False,
         rescale_learned_sigmas=False,
         mse_loss_weight_type='constant',
+        predict_v=False,
     )
 
 
@@ -104,6 +105,7 @@ def create_model_and_diffusion(
 
     in_chans=3,
     drop_label_prob=0.0,
+    predict_v=False,
 ):
     model = create_model(
         image_size,
@@ -136,6 +138,7 @@ def create_model_and_diffusion(
         rescale_learned_sigmas=rescale_learned_sigmas,
         timestep_respacing=timestep_respacing,
         mse_loss_weight_type=mse_loss_weight_type,
+        predict_v=predict_v,
     )
     return model, diffusion
 
@@ -222,6 +225,7 @@ def create_classifier_and_diffusion(
     rescale_timesteps,
     rescale_learned_sigmas,
     classifier_in_channels=3,
+    predict_v=False,
     **kwargs,
 ):
     classifier = create_classifier(
@@ -244,6 +248,7 @@ def create_classifier_and_diffusion(
         rescale_timesteps=rescale_timesteps,
         rescale_learned_sigmas=rescale_learned_sigmas,
         timestep_respacing=timestep_respacing,
+        predict_v=predict_v,
     )
     return classifier, diffusion
 
@@ -327,6 +332,7 @@ def sr_create_model_and_diffusion(
     use_scale_shift_norm,
     resblock_updown,
     use_fp16,
+    predict_v=False,
 ):
     model = sr_create_model(
         large_size,
@@ -422,6 +428,7 @@ def create_gaussian_diffusion(
     rescale_learned_sigmas=False,
     timestep_respacing="",
     mse_loss_weight_type='constant',
+    predict_v=False,
 ):
     betas = gd.get_named_beta_schedule(noise_schedule, steps)
     if use_kl:
@@ -432,7 +439,13 @@ def create_gaussian_diffusion(
         loss_type = gd.LossType.MSE
     if not timestep_respacing:
         timestep_respacing = [steps]
-    mean_type = gd.ModelMeanType.EPSILON if not predict_xstart else gd.ModelMeanType.START_X
+    # mean_type = gd.ModelMeanType.EPSILON if not predict_xstart else gd.ModelMeanType.START_X
+    assert not (predict_xstart and predict_v) # cannot predict both xstart and v
+    mean_type = gd.ModelMeanType.EPSILON
+    if predict_xstart:
+        mean_type = gd.ModelMeanType.START_X
+    elif predict_v:
+        mean_type = gd.ModelMeanType.VELOCITY
 
     return SpacedDiffusion(
         use_timesteps=space_timesteps(steps, timestep_respacing),

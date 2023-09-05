@@ -607,6 +607,26 @@ def vit_xl_patch2_32(pretrained=False, **kwargs):
     return model
 
 
+@register_model
+def vit_base_arbitrary(pretrained=False, **kwargs):
+    new_kwargs = kwargs
+    assert 'img_size' in new_kwargs and 'patch_size' in new_kwargs
+    assert new_kwargs['img_size'] % new_kwargs['patch_size'] == 0
+
+    for key in ['embed_dim', 'num_heads', 'mlp_ratio', 'qkv_bias', 'norm_layer']:
+        if key in new_kwargs:
+            new_kwargs.pop(key)
+    if not new_kwargs['class_cond']:
+        new_kwargs['num_classes'] = -1
+    model = VisionTransformer(
+        img_size=new_kwargs['img_size'],
+        patch_size=new_kwargs['patch_size'], 
+        embed_dim=768, num_heads=12, mlp_ratio=4, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **new_kwargs)
+    model.default_cfg = _cfg()
+    return model
+
+
 if __name__ == '__main__':
     vit_model = vit_base_patch2_32().cuda()
     x = torch.randn(8, 3, 128, 128).cuda()

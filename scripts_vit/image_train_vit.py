@@ -35,6 +35,11 @@ def build_model(**kwargs):
     elif kwargs['model_name'] == 'vit_xl_patch2_32':
         from guided_diffusion.vision_transformer import vit_xl_patch2_32
         _model = vit_xl_patch2_32(**kwargs)
+
+    elif kwargs['model_name'] == 'vit_base_arbitrary':
+        from guided_diffusion.vision_transformer import vit_base_arbitrary
+        _model = vit_base_arbitrary(**kwargs)
+        
     else:
         raise NotImplementedError(f'Such model is not supported')
     return _model
@@ -142,6 +147,7 @@ def create_argparser():
         drop_label_prob=0.,
         use_rel_pos_bias=False,
         in_chans=3,
+        patch_size=4,
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

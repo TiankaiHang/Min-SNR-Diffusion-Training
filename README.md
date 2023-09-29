@@ -10,7 +10,7 @@ By [Tiankai Hang](https://tiankaihang.github.io/), [Shuyang Gu](https://cientgu.
 
 ## ***News***
 
-The loss weight has been integrated into HuggingFace🤗 [diffusers]([https://tiankaihang.github.io/](https://github.com/huggingface/diffusers/blob/78a78515d64736469742e5081337dbcf60482750/examples/text_to_image/README.md?plain=1#L154)) and [k-diffusion](https://github.com/crowsonkb/k-diffusion)!
+The loss weight has been integrated into HuggingFace🤗 [diffusers](https://github.com/huggingface/diffusers/blob/78a78515d64736469742e5081337dbcf60482750/examples/text_to_image/README.md?plain=1#L154) and [k-diffusion](https://github.com/crowsonkb/k-diffusion)!
 
 ## Data Preparation
 

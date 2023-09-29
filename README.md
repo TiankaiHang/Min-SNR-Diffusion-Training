@@ -1,12 +1,16 @@
 # Efficient Diffusion Training via Min-SNR Weighting Strategy
 
-By Tiankai Hang, Shuyang Gu, Chen Li, Jianmin Bao, Dong Chen, Han Hu, Xin Geng, Baining Guo. 
+By [Tiankai Hang](https://tiankaihang.github.io/), [Shuyang Gu](https://cientgu.github.io/), [Chen Li](https://scholar.google.com/citations?user=b6CKhf8AAAAJ&hl=zh-CN), [Jianmin Bao](https://jianminbao.github.io/), [Dong Chen](http://www.dongchen.pro/), [Han Hu](https://ancientmooner.github.io/), [Xin Geng](http://palm.seu.edu.cn/xgeng/), [Baining Guo](https://scholar.google.com/citations?user=h4kYmRYAAAAJ). 
 
 [Paper](https://arxiv.org/abs/2303.09556) | [Code](https://github.com/TiankaiHang/Min-SNR-Diffusion-Training)
 
 
+**Abstract**. 
+> Denoising diffusion models have been a mainstream approach for image generation, however, training these models often suffers from slow convergence. In this paper, we discovered that the slow convergence is partly due to conflicting optimization directions between timesteps. To address this issue, we treat the diffusion training as a multi-task learning problem, and introduce a simple yet effective approach referred to as Min-SNR-$\gamma$. This method adapts loss weights of timesteps based on clamped signal-to-noise ratios, which effectively balances the conflicts among timesteps. Our results demonstrate a significant improvement in converging speed, 3.4x faster than previous weighting strategies. It is also more effective, achieving a new record FID score of 2.06 on the ImageNet 256x256 benchmark using smaller architectures than that employed in previous state-of-the-art.
 
-**Abstract**. Denoising diffusion models have been a mainstream approach for image generation, however, training these models often suffers from slow convergence. In this paper, we discovered that the slow convergence is partly due to conflicting optimization directions between timesteps. To address this issue, we treat the diffusion training as a multi-task learning problem, and introduce a simple yet effective approach referred to as Min-SNR-$\gamma$. This method adapts loss weights of timesteps based on clamped signal-to-noise ratios, which effectively balances the conflicts among timesteps. Our results demonstrate a significant improvement in converging speed, 3.4x faster than previous weighting strategies. It is also more effective, achieving a new record FID score of 2.06 on the ImageNet 256x256 benchmark using smaller architectures than that employed in previous state-of-the-art.
+## ***News***
+
+The loss weight has been integrated into HuggingFace🤗 [diffusers]([https://tiankaihang.github.io/](https://github.com/huggingface/diffusers/blob/78a78515d64736469742e5081337dbcf60482750/examples/text_to_image/README.md?plain=1#L154)) and [k-diffusion](https://github.com/crowsonkb/k-diffusion)!
 
 ## Data Preparation
 
@@ -22,7 +26,6 @@ GPUS=8
 BATCH_SIZE_PER_GPU=32
 bash configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh $GPUS $BATCH_SIZE_PER_GPU
 ```
-
 
 ## Sampling with Pre-trained Models
 For sampling for ImageNet-256, you could directly run
@@ -41,13 +44,13 @@ The pre-trained models will be automatically downloaded and FID-50K will be calc
 ## Citing Min-SNR Diffusion Training
 If you find our work useful for your research, please consider citing our paper. :blush:
 ```
-@article{hang2023efficient,
-      title={Efficient Diffusion Training via Min-SNR Weighting Strategy}, 
-      author={Tiankai Hang and Shuyang Gu and Chen Li and Jianmin Bao and Dong Chen and Han Hu and Xin Geng and Baining Guo},
-      year={2023},
-      eprint={2303.09556},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@InProceedings{Hang_2023_ICCV,
+    author    = {Hang, Tiankai and Gu, Shuyang and Li, Chen and Bao, Jianmin and Chen, Dong and Hu, Han and Geng, Xin and Guo, Baining},
+    title     = {Efficient Diffusion Training via Min-SNR Weighting Strategy},
+    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+    month     = {October},
+    year      = {2023},
+    pages     = {7441-7451}
 }
 ```
 

@@ -2,7 +2,7 @@
 
 By [Tiankai Hang](https://tiankaihang.github.io/), [Shuyang Gu](https://cientgu.github.io/), [Chen Li](https://scholar.google.com/citations?user=b6CKhf8AAAAJ&hl=zh-CN), [Jianmin Bao](https://jianminbao.github.io/), [Dong Chen](http://www.dongchen.pro/), [Han Hu](https://ancientmooner.github.io/), [Xin Geng](http://palm.seu.edu.cn/xgeng/), [Baining Guo](https://scholar.google.com/citations?user=h4kYmRYAAAAJ). 
 
-[Paper](https://arxiv.org/abs/2303.09556) | [Code](https://github.com/TiankaiHang/Min-SNR-Diffusion-Training)
+[Paper](https://openaccess.thecvf.com/content/ICCV2023/papers/Hang_Efficient_Diffusion_Training_via_Min-SNR_Weighting_Strategy_ICCV_2023_paper.pdf) | [arXiv](https://arxiv.org/abs/2303.09556) | [Code](https://github.com/TiankaiHang/Min-SNR-Diffusion-Training)
 
 
 **Abstract**. 

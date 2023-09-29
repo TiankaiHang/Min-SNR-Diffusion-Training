@@ -890,7 +890,10 @@ class GaussianDiffusion:
             
         if mse_loss_weight is None:
             raise ValueError(f'mse loss weight is not correctly set!')
-        
+
+        # Handle zero-terminal SNR with rescaled betas, where one position could be Infinite:
+        mse_loss_weight[snr == 0] = 1.0
+
         if self.loss_type == LossType.KL or self.loss_type == LossType.RESCALED_KL:
             terms["loss"] = self._vb_terms_bpd(
                 model=model,

@@ -60,7 +60,6 @@ def main():
     if int(os.environ["RANK"]) == 0 and USE_WANDB:
         wandb_log_dir = os.path.join(os.environ.get('OPENAI_LOGDIR', 'exp'), 'wandb_logger')
         os.makedirs(wandb_log_dir, exist_ok=True)
-        wandb.login(key='6af4861b52ff891552f5edd4839f6717c8a05526')
         wandb.init(project="guided_diffusion_vit", sync_tensorboard=True,
                    name=args.exp_name, id=args.exp_name, dir=wandb_log_dir)
 

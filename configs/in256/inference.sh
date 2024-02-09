@@ -1,17 +1,18 @@
 
-pip install -r requirements.txt
-pip install -e .
+# pip install -r requirements.txt
+# pip install -e .
 
 if [ ! -d edm ]; then
     git clone https://github.com/NVlabs/edm.git
 fi
 
 export NCCL_DEBUG=WARN
+export CUDA_VISIBLE_DEVICES=0,1,3,4,5,6
 
-GPUS=8
+GPUS=6
 IMG_SIZE=32
-BATCH_SIZE=32
-NUM_SAMPLES=50000
+BATCH_SIZE=128
+NUM_SAMPLES=2000
 MODEL_NAME="vit_xl_patch2_32"
 DEPTH=28
 GUIDANCE_SCALES="1.5"
@@ -25,8 +26,10 @@ if [ -e $CKPT ]; then
     echo "$CKPT exists."
 else
     echo "$$CKPT does not exist.";
-    sudo mkdir -p exp/guided_diffusion/;
-    sudo wget https://github.com/TiankaiHang/Min-SNR-Diffusion-Training/releases/download/v0.0.0/ema_0.9999_xl.pt -O $CKPT;
+    # sudo mkdir -p exp/guided_diffusion/;
+    # sudo wget https://github.com/TiankaiHang/Min-SNR-Diffusion-Training/releases/download/v0.0.0/ema_0.9999_xl.pt -O $CKPT;
+    mkdir -p exp/guided_diffusion/;
+    wget https://github.com/TiankaiHang/Min-SNR-Diffusion-Training/releases/download/v0.0.0/ema_0.9999_xl.pt -O $CKPT;
 fi
 
 MODEL_FLAGS="--class_cond True --image_size $IMG_SIZE --model_name ${MODEL_NAME} --depth $DEPTH --in_chans 4 --predict_xstart $PRED_X0 "
@@ -42,8 +45,9 @@ do
 SAMPLE_FLAGS="--batch_size $BATCH_SIZE --num_samples ${NUM_SAMPLES} --steps $STEP --guidance_scale $GUIDANCE_SCALE"
 
 OPENAI_LOGDIR="exp/guided_diffusion/xl_samples${NUM_SAMPLES}_step${STEP}_scale${GUIDANCE_SCALE}"
-sudo mkdir -p $OPENAI_LOGDIR && sudo chmod 777 $OPENAI_LOGDIR
-OPENAI_LOGDIR=$OPENAI_LOGDIR torchrun --nproc_per_node=$GPUS --master_port=23456 scripts_vit/sampler_edm.py --model_path $CKPT $MODEL_FLAGS $DIFFUSION_FLAGS $SAMPLE_FLAGS
+# sudo mkdir -p $OPENAI_LOGDIR && sudo chmod 777 $OPENAI_LOGDIR
+mkdir -p $OPENAI_LOGDIR && chmod 777 $OPENAI_LOGDIR
+OPENAI_LOGDIR=$OPENAI_LOGDIR torchrun --nproc_per_node=$GPUS --master_port=12349 scripts_vit/sampler_edm.py --model_path $CKPT $MODEL_FLAGS $DIFFUSION_FLAGS $SAMPLE_FLAGS
 
 cd edm
 torchrun --standalone --nproc_per_node=$GPUS fid.py calc --images=../$OPENAI_LOGDIR --ref=https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/imagenet/256/VIRTUAL_imagenet256_labeled.npz --num $NUM_SAMPLES 

@@ -1,7 +1,6 @@
 import copy
 import functools
 import os
-import glob
 
 import blobfile as bf
 import torch as th
@@ -9,19 +8,10 @@ import torch.distributed as dist
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
-try:
-    from apex.optimizers import FusedAdam
-except:
-    FusedAdam = None
-
 from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
 from .nn import update_ema
-from .resample import (
-    LossAwareSampler, UniformSampler
-)
-
-from .lr_scheduler import cosine_scheduler, update_lr_weightdecay, get_lr_wd
+from .resample import LossAwareSampler, UniformSampler
 
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
@@ -45,18 +35,9 @@ class TrainLoop:
         resume_checkpoint,
         use_fp16=False,
         fp16_scale_growth=1e-3,
-        schedule_sampler=None, # sampler uniform or loss-aware
+        schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
-        betas=(0.9, 0.999),
-        warmup_steps=0,
-        lr_final=1e-5,
-        use_fused_adam=False,
-        clip_norm=-1., # < 0 to not use
-        hack_not_ema=False,
-        _debug_log_detailed_timesteps=False,
-        bin_id=-1,
-        pg_inv=False,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -78,8 +59,6 @@ class TrainLoop:
         self.weight_decay = weight_decay
         self.lr_anneal_steps = lr_anneal_steps
 
-        self.hack_not_ema = hack_not_ema
-
         self.step = 0
         self.resume_step = 0
         self.global_batch = self.batch_size * dist.get_world_size()
@@ -91,22 +70,11 @@ class TrainLoop:
             model=self.model,
             use_fp16=self.use_fp16,
             fp16_scale_growth=fp16_scale_growth,
-            clip_norm=clip_norm,
         )
 
-        if FusedAdam is not None and use_fused_adam:
-            logger.info(">>>>>>>>> Using FusedAdam")
-            self.opt = FusedAdam(
-                self.mp_trainer.master_params, lr=self.lr, 
-                weight_decay=self.weight_decay, betas=betas
-            )
-        else:
-            logger.info(">>>>>>>>> Using AdamW")
-            self.opt = AdamW(
-                self.mp_trainer.master_params, lr=self.lr, 
-                weight_decay=self.weight_decay, betas=betas
-            )
-
+        self.opt = AdamW(
+            self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
+        )
         if self.resume_step:
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
@@ -120,85 +88,37 @@ class TrainLoop:
                 for _ in range(len(self.ema_rate))
             ]
 
-        th.cuda.empty_cache()
-        
-        debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'   
-        if not debug_mode:
-            if th.cuda.is_available():
-                self.use_ddp = True
-                self.ddp_model = DDP(
-                    self.model,
-                    device_ids=[dist_util.dev()],
-                    output_device=dist_util.dev(),
-                    broadcast_buffers=False,
-                    bucket_cap_mb=128,
-                    find_unused_parameters=False,
+        if th.cuda.is_available():
+            self.use_ddp = True
+            self.ddp_model = DDP(
+                self.model,
+                device_ids=[dist_util.dev()],
+                output_device=dist_util.dev(),
+                broadcast_buffers=False,
+                bucket_cap_mb=128,
+                find_unused_parameters=False,
+            )
+        else:
+            if dist.get_world_size() > 1:
+                logger.warn(
+                    "Distributed training requires CUDA. "
+                    "Gradients will not be synchronized properly!"
                 )
-            else:
-                if dist.get_world_size() > 1:
-                    logger.warn(
-                        "Distributed training requires CUDA. "
-                        "Gradients will not be synchronized properly!"
-                    )
-                self.use_ddp = False
-                self.ddp_model = self.model
-        else:
             self.use_ddp = False
-            self.ddp_model = self.model 
-
-            
-        if self.step + self.resume_step >= self.lr_anneal_steps and self.lr_anneal_steps > 0:
-            exit(-1)
-
-        # learning scheduler
-        if lr_anneal_steps > 0 and warmup_steps > 0:
-            self.lr_sched = cosine_scheduler(
-                base_value=lr,
-                final_value=lr_final,
-                start_warmup_value=0.0,
-                warmup_steps=warmup_steps,
-                total_steps=lr_anneal_steps
-            )
-            update_lr_weightdecay(
-                self.step + self.resume_step,
-                lr_schedule_values=self.lr_sched,
-                wd_schedule_values=None,
-                optimizer=self.opt
-            )
-        else:
-            self.lr_sched = None
-
-        # whether to log detailed loss
-        self.detailed_log_loss = None
-        if _debug_log_detailed_timesteps:
-            self.detailed_log_loss = detailed_logger(
-                os.getenv("OPENAI_LOGDIR", "exp"), rank=dist.get_rank())
-        self.bin_id = bin_id
-        self.pg_inv = pg_inv
+            self.ddp_model = self.model
 
     def _load_and_sync_parameters(self):
         resume_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
 
         if resume_checkpoint:
-            print(f'=====> load model from resume_checkpoint: {resume_checkpoint}')
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
             if dist.get_rank() == 0:
                 logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
-                state_dict = dist_util.load_state_dict(
-                    resume_checkpoint, dist_type='pytorch', map_location=dist_util.dev()
+                self.model.load_state_dict(
+                    dist_util.load_state_dict(
+                        resume_checkpoint, map_location=dist_util.dev()
+                    )
                 )
-                if 'model' in state_dict:
-                    state_dict = state_dict['model']
-                    # pos embedding
-                    # import pdb; pdb.set_trace()
-                    if self.model.state_dict()['pos_embed'].shape[1] == state_dict['pos_embed'].shape[1] + 1:
-                        pos_embed = th.zeros(size=self.model.state_dict()['pos_embed'].shape)
-                        pos_embed[:, 0, :] = state_dict['pos_embed'][:, 0, :]
-                        pos_embed[:, 2:, :] = state_dict['pos_embed'][:, 1:, :]
-                        state_dict['pos_embed'] = pos_embed
-
-                self.model.load_state_dict(state_dict, strict=False)
-                del state_dict
 
         dist_util.sync_params(self.model.parameters())
 
@@ -211,10 +131,9 @@ class TrainLoop:
             if dist.get_rank() == 0:
                 logger.log(f"loading EMA from checkpoint: {ema_checkpoint}...")
                 state_dict = dist_util.load_state_dict(
-                    ema_checkpoint, dist_type='pytorch', map_location=dist_util.dev()
+                    ema_checkpoint, map_location=dist_util.dev()
                 )
                 ema_params = self.mp_trainer.state_dict_to_master_params(state_dict)
-                del state_dict
 
         dist_util.sync_params(ema_params)
         return ema_params
@@ -227,47 +146,35 @@ class TrainLoop:
         if bf.exists(opt_checkpoint):
             logger.log(f"loading optimizer state from checkpoint: {opt_checkpoint}")
             state_dict = dist_util.load_state_dict(
-                opt_checkpoint, dist_type='pytorch', map_location=dist_util.dev()
+                opt_checkpoint, map_location=dist_util.dev()
             )
             self.opt.load_state_dict(state_dict)
-            del state_dict
 
     def run_loop(self):
         while (
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
-        ): # 没有停止条件
-            if self.step % self.save_interval == 0 and self.step > 0: # save model
-            # if (self.step) % self.save_interval == 0: # save model
-                self.save()
-                # Run for a finite amount of time in integration tests.
-                if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
-                    return
+        ):
             batch, cond = next(self.data)
             self.run_step(batch, cond)
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
-                # log some other values
-                # logger.logkv("custom_step", self.step + self.resume_step)
-                min_lr, max_lr, _ = get_lr_wd(optimizer=self.opt)
-                logger.logkv("min_lr", min_lr)
-                logger.logkv("max_lr", max_lr)
-
+            if self.step % self.save_interval == 0:
+                self.save()
+                # Run for a finite amount of time in integration tests.
+                if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
+                    return
             self.step += 1
-
         # Save the last checkpoint if it wasn't already saved.
-        if (self.step - 1) % self.save_interval != 0 and self.step >= 100:
+        if (self.step - 1) % self.save_interval != 0:
             self.save()
-
-        if self.detailed_log_loss is not None:
-            self.detailed_log_loss.close()
 
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
         took_step = self.mp_trainer.optimize(self.opt)
-        if took_step and not self.hack_not_ema:
-            self._update_ema() # update ema
-        self._anneal_lr() # update lr
+        if took_step:
+            self._update_ema()
+        self._anneal_lr()
         self.log_step()
 
     def forward_backward(self, batch, cond):
@@ -279,7 +186,7 @@ class TrainLoop:
                 for k, v in cond.items()
             }
             last_batch = (i + self.microbatch) >= batch.shape[0]
-            t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev()) # sample timesteps
+            t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
 
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
@@ -303,33 +210,16 @@ class TrainLoop:
             loss = (losses["loss"] * weights).mean()
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
-            ) # log loss
-            if self.detailed_log_loss is not None:
-                log_detailed_loss_dict(
-                    self.diffusion, t, {k: v * weights for k, v in losses.items()}, 
-                    self.detailed_log_loss, bins=1000)
-                if self.step % self.log_interval == 0:
-                    self.detailed_log_loss.do_log() 
+            )
             self.mp_trainer.backward(loss)
 
-            
     def _update_ema(self):
         for rate, params in zip(self.ema_rate, self.ema_params):
             update_ema(params, self.mp_trainer.master_params, rate=rate)
 
     def _anneal_lr(self):
-        if not self.lr_anneal_steps or (self.lr_sched is None):
+        if not self.lr_anneal_steps:
             return
-
-        if self.lr_sched is not None:
-            update_lr_weightdecay(
-                self.step + self.resume_step,
-                lr_schedule_values=self.lr_sched,
-                wd_schedule_values=None,
-                optimizer=self.opt
-            )
-            return
-
         frac_done = (self.step + self.resume_step) / self.lr_anneal_steps
         lr = self.lr * (1 - frac_done)
         for param_group in self.opt.param_groups:
@@ -389,17 +279,6 @@ def get_blob_logdir():
 def find_resume_checkpoint():
     # On your infrastructure, you may want to override this to automatically
     # discover the latest checkpoint on your blob storage, etc.
-    log_dir = get_blob_logdir()
-    files = glob.glob(f"{log_dir}/model*.pt")
-    max_iter = 0
-    for _f in files:
-        parsed_iter = int(_f.split('/model')[-1].split('.')[0])
-        max_iter = max(parsed_iter, max_iter)
-    
-    if max_iter > 0:
-        logger.info(f">>>>> Auto resume from {log_dir}/model{max_iter:06d}.pt")
-        return f"{log_dir}/model{max_iter:06d}.pt"
-
     return None
 
 
@@ -420,47 +299,3 @@ def log_loss_dict(diffusion, ts, losses):
         for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
             quartile = int(4 * sub_t / diffusion.num_timesteps)
             logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
-
-
-
-# loss logger for more detailed loss at different timesteps
-# ---------------------------------------------------------
-from collections import defaultdict
-
-
-class detailed_logger(object):
-    def __init__(self, dir, rank=0) -> None:
-        self.name2val = defaultdict(float)  # values this iteration
-        self.name2cnt = defaultdict(int)
-
-        self.out_file = os.path.join(dir, f'log_rank{rank}.txt')
-        self.f = open(self.out_file, "w")
-
-    def logkv(self, key, val):
-        self.name2val[key] = val
-
-    def logkv_mean(self, key, val):
-        oldval, cnt = self.name2val[key], self.name2cnt[key]
-        self.name2val[key] = oldval * cnt / (cnt + 1) + val / (cnt + 1)
-        self.name2cnt[key] = cnt + 1
-
-    def do_log(self):
-        processed_str = ''
-        for key, val in self.name2val.items():
-            processed_str += f"{key}(cnt{self.name2cnt[key]}):{val:.6f},"
-        processed_str += '\n'
-        self.f.writelines(processed_str)
-    
-    def close(self):
-        self.f.close()
-
-
-def log_detailed_loss_dict(diffusion, ts, losses, detailed_logger: detailed_logger, bins=4):
-    for key, values in losses.items():
-        detailed_logger.logkv_mean(key, values.mean().item())
-        # Log the quantiles (four quartiles, in particular).
-        for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
-            quartile = int(bins * sub_t / diffusion.num_timesteps)
-            detailed_logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
-
-    # detailed_logger.do_log()

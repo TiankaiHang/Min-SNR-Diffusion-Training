@@ -11,6 +11,15 @@ import torch.distributed as dist
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 
+def collect_image_paths(train_folder):
+    image_paths = []
+    # 遍历train_folder中的所有文件夹和文件
+    for root, dirs, files in os.walk(train_folder):
+        for file in files:
+            # 检查文件是否为JPEG图像
+            if file.endswith(".JPEG"):
+                image_paths.append(os.path.join(root, file))
+    return image_paths
 
 def load_data(
     *,
@@ -51,13 +60,21 @@ def load_data(
         classes = None
         if class_cond:
             classes = [item[1] for item in file_list]
-
-    else:
-        all_files = _list_image_files_recursively(data_dir)
+    elif 'ILSVRC2012_ldm_256_diffuser/train/' in data_dir or "/data4/share/imagenet/train" in data_dir:
+        all_files = collect_image_paths(data_dir)
         classes = None
         if class_cond:
             # Assume classes are the first part of the filename,
-            # before an underscore.
+            # before an underscore. 如何定义class
+            class_names = [bf.basename(path).split("_")[0] for path in all_files]
+            sorted_classes = {x: i for i, x in enumerate(sorted(set(class_names)))}
+            classes = [sorted_classes[x] for x in class_names]
+    else:
+        all_files = _list_image_files_recursively(data_dir) # imagenet 训练集处理加速
+        classes = None
+        if class_cond:
+            # Assume classes are the first part of the filename,
+            # before an underscore. 如何定义class
             class_names = [bf.basename(path).split("_")[0] for path in all_files]
             sorted_classes = {x: i for i, x in enumerate(sorted(set(class_names)))}
             classes = [sorted_classes[x] for x in class_names]
@@ -78,6 +95,7 @@ def load_data(
         loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, num_workers=1, drop_last=True
         )
+    print(f"loader: {loader}")
     while True:
         yield from loader
 

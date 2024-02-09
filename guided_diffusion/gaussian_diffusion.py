@@ -885,7 +885,7 @@ class GaussianDiffusion:
 
             elif self.mse_loss_weight_type.startswith("max_snr_"):
                 k = float(self.mse_loss_weight_type.split('max_snr_')[-1])
-                # min{snr, k}
+                # max{snr, k}
                 mse_loss_weight = th.stack([snr, k * th.ones_like(t)], dim=1).max(dim=1)[0]
             
         if mse_loss_weight is None:
@@ -905,10 +905,10 @@ class GaussianDiffusion:
             )["output"]
             if self.loss_type == LossType.RESCALED_KL:
                 terms["loss"] *= self.num_timesteps
-        elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
+        elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE: # 使用MSE loss
             model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
 
-            if self.model_var_type in [
+            if self.model_var_type in [ # 不使用learned range
                 ModelVarType.LEARNED,
                 ModelVarType.LEARNED_RANGE,
             ]:
@@ -944,7 +944,7 @@ class GaussianDiffusion:
             
             # hack
             terms["mse"] = mse_loss_weight * mean_flat((target - model_output) ** 2)
-            terms["mse_raw"] = mean_flat((target - model_output) ** 2)
+            terms["mse_raw"] = mean_flat((target - model_output) ** 2) # mse_raw 没有loss weight 为原始mse
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["vb"]
             else:

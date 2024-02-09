@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.distributed as dist
 
 
-def create_named_schedule_sampler(name : str, diffusion):
+def create_named_schedule_sampler(name : str, diffusion, args):
     """
     Create a ScheduleSampler from a library of pre-defined samplers.
 
@@ -17,6 +17,8 @@ def create_named_schedule_sampler(name : str, diffusion):
         return UniformSampler(diffusion)
     elif name == "loss-second-moment":
         return LossSecondMomentResampler(diffusion)
+    elif name == "min_max_bin_sampler":
+        return MinMaxBinSampler(diffusion, args.time_bins)
     else:
         raise NotImplementedError(f"unknown schedule sampler: {name}")
 
@@ -52,9 +54,9 @@ class ScheduleSampler(ABC):
         """
         w = self.weights()
         p = w / np.sum(w)
-        indices_np = np.random.choice(len(p), size=(batch_size,), p=p)
+        indices_np = np.random.choice(len(p), size=(batch_size,), p=p) # 从0~len(p)中随机选取batch_size个数
         indices = th.from_numpy(indices_np).long().to(device)
-        weights_np = 1 / (len(p) * p[indices_np])
+        weights_np = 1 / (len(p) * p[indices_np]) # 1 / (len(p) * p[indices_np]) 为重要性采样的权重
         weights = th.from_numpy(weights_np).float().to(device)
         return indices, weights
 
@@ -67,6 +69,44 @@ class UniformSampler(ScheduleSampler):
     def weights(self):
         return self._weights
 
+
+class MinMaxBinSampler(ScheduleSampler):
+    def __init__(self, diffusion, time_bins):
+        self.diffusion = diffusion
+        self.time_bins = time_bins
+        self._weights = np.ones([diffusion.num_timesteps])
+
+    def weights(self):
+        return self._weights
+
+
+    def sample(self, batch_size, device):
+        """
+        Sample function for MinMaxBinSampler
+        """
+        w = self.weights()
+        p = w / np.sum(w)
+
+        # 修改time_bins sample方式
+        # 1000个timestep，只sample其中的500个, 只选择偶数。提供一个待选的timestep列表valid_indices，仅从中选择
+        
+        time_bins = [0, 100, 300, 400, 600, 700, 900, 1000]
+        # Create a mask to select only indices within specified bins
+        valid_indices = np.concatenate([np.arange(start, end) for (start, end) in self.time_bins])
+        
+        # Adjust probabilities to consider only valid indices
+        adjusted_p = p[valid_indices]
+        adjusted_p /= np.sum(adjusted_p)
+
+        # Sample from the adjusted probabilities
+        indices_np = np.random.choice(valid_indices, size=batch_size, p=adjusted_p)
+        indices = th.from_numpy(indices_np).long().to(device)
+        
+        # Calculate the weights for importance sampling
+        weights_np = 1 / (len(valid_indices) * adjusted_p[np.searchsorted(valid_indices, indices_np)])
+        weights = th.from_numpy(weights_np).float().to(device)
+
+        return indices, weights
 
 class LossAwareSampler(ScheduleSampler):
     def update_with_local_losses(self, local_ts, local_losses):

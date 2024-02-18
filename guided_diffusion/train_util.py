@@ -282,7 +282,7 @@ class TrainLoop:
             t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev()) # sample timesteps
 
             compute_losses = functools.partial(
-                self.diffusion.training_losses,
+                self.diffusion.training_losses,  # training_losses function
                 self.ddp_model,
                 micro,
                 t,
@@ -297,13 +297,13 @@ class TrainLoop:
 
             if isinstance(self.schedule_sampler, LossAwareSampler):
                 self.schedule_sampler.update_with_local_losses(
-                    t, losses["loss"].detach()
+                    t, losses["loss"].detach()    
                 )
 
             loss = (losses["loss"] * weights).mean()
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
-            ) # log loss
+            ) # log loss wandb 记录
             if self.detailed_log_loss is not None:
                 log_detailed_loss_dict(
                     self.diffusion, t, {k: v * weights for k, v in losses.items()}, 

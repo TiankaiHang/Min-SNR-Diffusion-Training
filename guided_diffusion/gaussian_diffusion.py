@@ -824,7 +824,7 @@ class GaussianDiffusion:
 
     def training_losses(self, model, x_start, t, model_kwargs=None, noise=None):
         """
-        Compute training losses for a single timestep.
+        Compute training losses for a single timestep. 计算loss
 
         :param model: the model to evaluate loss on.
         :param x_start: the [N x C x ...] tensor of inputs.

@@ -361,7 +361,7 @@ class Logger(object):
         self.name2val[key] = oldval * cnt / (cnt + 1) + val / (cnt + 1)
         self.name2cnt[key] = cnt + 1
 
-        wandb_log({key: self.name2val[key]}, step=self.name2cnt[key])
+        wandb_log({key: self.name2val[key]}, step=self.name2cnt[key]) # wandb log step 
 
     def dumpkvs(self):
         if self.comm is None:

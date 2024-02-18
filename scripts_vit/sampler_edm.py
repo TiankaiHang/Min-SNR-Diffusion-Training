@@ -14,6 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(ROOT_DIR)
 
+from datetime import datetime
 from torch_utils import distributed as dist
 
 from guided_diffusion import dist_util
@@ -257,6 +258,25 @@ def ablation_sampler(
 
 @torch.no_grad()
 def main():
+    
+    # debug mode
+    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'   
+    if debug_mode:
+        # 设置为单卡运行
+        print("=================>>debug mode")
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12345'
+        os.environ['WORLD_SIZE'] = '1'
+        # os.environ['CUDA_VISIBLE_DEVICES'] = '1,3,4,6'
+        os.environ['RANK'] = '0'
+
+        # # 模拟分布式函数
+        # dist.get_rank = lambda: 0
+        # dist.get_world_size = lambda: 1
+        # dist_util.dev = lambda: torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # dist_util.setup_dist = lambda backend: None
+
+
     dist.init()
 
     args, unknown = create_argparser().parse_known_args()
@@ -352,7 +372,9 @@ def main():
                     f'{_iter}_{_j}_rank{dist.get_rank()}.png'), 
                 normalize=True, value_range=(-1, 1))
         _iter += 1
-        dist.print0(f"Sampled {(_iter * args.batch_size * dist.get_world_size()):06d} imgs")
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        dist.print0(f"Current_time {current_time}｜ Sampled {(_iter * args.batch_size * dist.get_world_size()):06d} imgs")
 
     torch.distributed.barrier()
 
@@ -410,3 +432,5 @@ def create_argparser():
 
 if __name__ == '__main__':
     main()
+
+50000/64*4

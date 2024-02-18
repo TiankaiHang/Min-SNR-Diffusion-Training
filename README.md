@@ -29,6 +29,14 @@ BATCH_SIZE_PER_GPU=32
 bash configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh $GPUS $BATCH_SIZE_PER_GPU
 ```
 
+
+```bash
+GPUS=1
+BATCH_SIZE_PER_GPU=3
+bash configs/in256/vit-b_layer12_lr1e-4_099_099_pred_x0__min_snr_5__fp16_bs8x32.sh $GPUS $BATCH_SIZE_PER_GPU
+```
+
+
 ## Sampling with Pre-trained Models
 For sampling for ImageNet-256, you could directly run
 ```bash

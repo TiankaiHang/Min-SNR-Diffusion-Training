@@ -48,40 +48,10 @@ def build_model(**kwargs):
 def main():
     args = create_argparser().parse_args()
 
-    # debug mode
-    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'   
-    if debug_mode:
-        # 设置为单卡运行
-        print("=================>>debug mode")
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = '12345'
-        os.environ['WORLD_SIZE'] = '1'
-        os.environ['RANK'] = '0'
-        os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3,4'
-
-        # 模拟分布式函数
-        dist.get_rank = lambda: 0
-        dist.get_world_size = lambda: 1
-        dist_util.dev = lambda: torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        dist_util.setup_dist = lambda backend: None
-
-        # rank = int(os.environ["RANK"])
-        # world_size = int(os.environ['WORLD_SIZE'])
-        # master_uri = "tcp://%s:%s" % (os.environ["MASTER_ADDR"], os.environ["MASTER_PORT"])
-
-        # torch.distributed.init_process_group(
-        #     backend='nccl', init_method=master_uri, 
-        #     world_size=world_size, rank=rank)
-    else:
-        print("=================>>destributed learning mode")
-        dist_util.setup_dist('pytorch')
-
+    dist_util.setup_dist('pytorch')
     logger.configure()
 
-    if debug_mode:
-        seed = 2022
-    else:
-        seed = 2022 + dist.get_rank()
+    seed = 2022 + dist.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
 
@@ -92,7 +62,6 @@ def main():
         os.makedirs(wandb_log_dir, exist_ok=True)
         wandb.init(project="guided_diffusion_vit", sync_tensorboard=True,
                    name=args.exp_name, id=args.exp_name, dir=wandb_log_dir)
-        wandb.run.notes = "sample t from [0,100], [300,400],[600,700],[900,1000]"
 
     logger.log("creating model and diffusion...")
     # model = beit_base_patch4_64()
@@ -106,10 +75,8 @@ def main():
 
     print(f"dev: {dist_util.dev()}\t rank: {dist.get_rank()}\t worldsize: {dist.get_world_size()}")
 
-    # wandb.config.update(args)
-
     model.to(dist_util.dev())
-    schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion, args) # diffusion sampler 修改采样方式
+    schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     logger.log("creating data loader...")
     data = load_data(
@@ -185,7 +152,9 @@ def create_argparser():
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
 
+
     parser.add_argument("--time_bins", type=parse_time_bins, required=True, help="List of time bin intervals e.g. '0 100, 300 400, 600 700, 900 1000'")
+
     return parser
 
 
@@ -196,6 +165,7 @@ def parse_time_bins(arg):
         return bins
     except:
         raise argparse.ArgumentTypeError("Time bins must be a list of pairs of integers")
+
 
 if __name__ == "__main__":
     main()

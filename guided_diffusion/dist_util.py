@@ -114,9 +114,13 @@ def sync_params(params):
     """
     Synchronize a sequence of Tensors across ranks from rank 0.
     """
-    for p in params:
-        with th.no_grad():
-            dist.broadcast(p, 0)
+    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'
+    if debug_mode:
+        return
+    else:
+        for p in params:
+            with th.no_grad():
+                dist.broadcast(p, 0)
 
 
 def _find_free_port():

@@ -50,6 +50,10 @@ def build_model(**kwargs):
     return _model
 
 
+def float_equal(num1, num2, eps=1e-8):
+    return abs(num1 - num2) < eps
+
+
 class Net(torch.nn.Module):
     def __init__(self,
         model,
@@ -97,7 +101,10 @@ class Net(torch.nn.Module):
         c_in = 1 / (sigma ** 2 + 1).sqrt()
         c_noise = self.M - 1 - self.round_sigma(sigma, return_index=True).to(torch.float32)
 
-        if model_kwargs.get('guidance_scale', 0) > 0:
+        guidance_scale = model_kwargs.get('guidance_scale', 1.0)
+        if callable(guidance_scale):
+            guidance_scale = guidance_scale(c_noise.flatten().repeat(x.shape[0]).int()[0])
+        if not float_equal(guidance_scale, 1.0):
             half = x[: len(x) // 2]
             combined = torch.cat([half, half], dim=0)
         else:
@@ -107,17 +114,17 @@ class Net(torch.nn.Module):
 
         assert F_x.dtype == dtype
         if not self.pred_x0:
-            if model_kwargs.get('guidance_scale', 0) > 0:
+            if not float_equal(guidance_scale, 1.0):
                 cond, uncond = torch.split(F_x, len(F_x) // 2, dim=0)
-                cond = uncond + model_kwargs['guidance_scale'] * (cond - uncond)
+                cond = uncond + guidance_scale * (cond - uncond)
                 F_x = torch.cat([cond, cond], dim=0)
 
             D_x = c_skip * x + c_out * F_x[:, :self.img_channels].to(torch.float32)
         else:
             D_x = F_x
-            if model_kwargs.get('guidance_scale', 0) > 0:
+            if not float_equal(guidance_scale, 1.0):
                 cond, uncond = torch.split(D_x, len(D_x) // 2, dim=0)
-                cond = uncond + model_kwargs['guidance_scale'] * (cond - uncond)
+                cond = uncond + guidance_scale * (cond - uncond)
                 D_x = torch.cat([cond, cond], dim=0)
 
         return D_x
@@ -283,7 +290,6 @@ def main():
         model = build_model(**vars(args))
 
     pretrained_obj = dist_util.load_state_dict(args.model_path, dist_type='pytorch', map_location="cpu")
-    # import pdb; pdb.set_trace()
     # hack for non-consistent time embedding length
     if 'time_embedding.weight' in model.state_dict() and \
         model.state_dict()['time_embedding.weight'].shape[0] != pretrained_obj['time_embedding.weight'].shape[0]:
@@ -293,7 +299,6 @@ def main():
         tmp_time_embed[:useful_length] = pretrained_obj['time_embedding.weight'][:useful_length]
         pretrained_obj['time_embedding.weight'] = tmp_time_embed
 
-    # import pdb; pdb.set_trace()
     model.load_state_dict(
         pretrained_obj,
         strict=True,
@@ -320,7 +325,7 @@ def main():
         class_labels = None
         if args.class_cond:
             y_cond = torch.randint(0, 1000, (args.batch_size,)).cuda()
-            if args.guidance_scale > 0:
+            if not float_equal(args.guidance_scale, 1.0):
                 y_uncond = torch.randint(1000, 1001, (args.batch_size,)).cuda()
                 class_labels = torch.cat((y_cond, y_uncond), dim=0)
             else:
@@ -329,20 +334,26 @@ def main():
         
         z = torch.randn([args.batch_size, net.img_channels, net.img_resolution, net.img_resolution], device="cuda")
         if args.sample_name == "edm":
-            if args.guidance_scale > 0:
+            # if args.guidance_scale > 0:
+            if not float_equal(args.guidance_scale, 1.0):
                 z = torch.cat((z, z), dim=0)
+            if args.t_from >= 0 and args.t_to > args.t_from:
+                guidance_scale = lambda t: args.guidance_scale if args.t_from <= t <= args.t_to else 1.0
+            else:
+                guidance_scale = args.guidance_scale
+            
             samples = ablation_sampler(
                 net, latents=z, 
                 num_steps=args.steps, solver=args.edm_solver,
                 class_labels=class_labels,
-                guidance_scale=args.guidance_scale,
+                guidance_scale=guidance_scale,
             )
 
         else:
             raise ValueError(f"Such sampler {args.sample_name} is not supported")
 
         if args.in_chans == 4:
-            if args.guidance_scale > 0 and args.sample_name == "edm":
+            if (not float_equal(args.guidance_scale, 1.0)) and args.sample_name == "edm":
                 samples, _ = samples.chunk(2, dim=0)  # Remove null class samples
             samples = vae.decode(samples.float() / 0.18215).sample
         
@@ -400,6 +411,9 @@ def create_argparser():
 
         use_rel_pos_bias=False,
         seed=2022,
+
+        t_from=-1,
+        t_to=-1,
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())

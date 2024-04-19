@@ -10,7 +10,7 @@ By [Tiankai Hang](https://tiankaihang.github.io/), [Shuyang Gu](https://cientgu.
 
 ## ***News***
 
-- *04/17/2024* Support [`Limited Interval Guidance`](https://arxiv.org/pdf/2404.07724.pdf) for sampling on ImageNet-256 and improve the FID score from `2.06` to `1.61`.
+- *04/17/2024* Support [`Limited Interval Guidance`](https://arxiv.org/pdf/2404.07724.pdf) for sampling on ImageNet-256 and improve the FID score from `2.06` to `1.57`.
 - *01/21/2024* A soft version `soft-min-snr` is proposed in [HDiT](https://crowsonkb.github.io/hourglass-diffusion-transformers/) 
 - Adopted by [DeciDiffusion](https://huggingface.co/Deci/DeciDiffusion-v1-0)
 - The loss weight has been integrated into HuggingFace🤗 [diffusers](https://github.com/huggingface/diffusers/blob/78a78515d64736469742e5081337dbcf60482750/examples/text_to_image/README.md?plain=1#L154) and [k-diffusion](https://github.com/crowsonkb/k-diffusion)!
@@ -36,7 +36,7 @@ For sampling for ImageNet-256, you could directly run
 bash configs/in256/inference.sh
 ```
 
-Thanks to the sampling method from [Applying Guidance in a Limited Interval Improves Sample and Distribution Quality in Diffusion Models](https://arxiv.org/pdf/2404.07724.pdf), we achieve a new FID score of `1.61414` on the ImageNet 256x256 benchmark. You can run the following command
+Thanks to the sampling method from [Applying Guidance in a Limited Interval Improves Sample and Distribution Quality in Diffusion Models](https://arxiv.org/pdf/2404.07724.pdf), we achieve a new FID score of `1.57342` on the ImageNet 256x256 benchmark. You can run the following command
 
 ```bash
 bash configs/in256/inference_limited_interval_guidance.sh

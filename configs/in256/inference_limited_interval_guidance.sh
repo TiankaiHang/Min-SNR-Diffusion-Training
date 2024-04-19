@@ -18,7 +18,7 @@ BATCH_SIZE=32
 NUM_SAMPLES=50000
 MODEL_NAME="vit_xl_patch2_32"
 DEPTH=28
-GUIDANCE_SCALES="2.0"
+GUIDANCE_SCALES="2.1"
 STEPS="30"
 PRED_X0=True
 T_FROM=000
@@ -68,4 +68,4 @@ bash ../job_manager/run.sh ${GPUS} ../job_manager
 #          expected output
 # -----------------------------------
 # Calculating FID...
-# 1.61414
+# 1.57342

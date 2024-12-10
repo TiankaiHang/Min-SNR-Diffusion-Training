@@ -10,9 +10,11 @@ By [Tiankai Hang](https://tiankaihang.github.io/), [Shuyang Gu](https://cientgu.
 
 ## ***News***
 
+- *12/2024* Adopted in [PLAID (Protein Latent Induced Diffusion)](https://www.biorxiv.org/content/10.1101/2024.12.02.626353v1) for protein structure generation, $\mathbf{v}$-pred + Min-SNR. [[Code](https://github.com/amyxlu/plaid)]
+- *12/2024* Adopted in [MuLan🌻](https://arxiv.org/pdf/2412.01271) for multilingual diffusion models.
 - *04/17/2024* Support [`Limited Interval Guidance`](https://arxiv.org/pdf/2404.07724.pdf) for sampling on ImageNet-256 and improve the FID score from `2.06` to `1.57`.
 - *01/21/2024* A soft version `soft-min-snr` is proposed in [HDiT](https://crowsonkb.github.io/hourglass-diffusion-transformers/) 
-- Adopted by [DeciDiffusion](https://huggingface.co/Deci/DeciDiffusion-v1-0)
+- Adopted by [DeciDiffusion-v1](https://huggingface.co/Deci/DeciDiffusion-v1-0) and [DeciDiffusion-v2](https://huggingface.co/Deci/DeciDiffusion-v2-0)
 - The loss weight has been integrated into HuggingFace🤗 [diffusers](https://github.com/huggingface/diffusers/blob/78a78515d64736469742e5081337dbcf60482750/examples/text_to_image/README.md?plain=1#L154) and [k-diffusion](https://github.com/crowsonkb/k-diffusion)!
 
 ## Data Preparation
